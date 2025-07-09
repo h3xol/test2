@@ -1,0 +1,1 @@
+ 2pyXŽhrprojext/settings.py
