@@ -27,21 +27,27 @@ jobs:
 
       - name: Install lint & type-check tools
         run: |
-          # Fix Flake8 incompatibility with importlib_metadata on Python 3.12
           pip install "importlib-metadata<6.0.0"
           pip install flake8 pylint mypy
         continue-on-error: true
 
-      - name: Flake8 lint
-        run: flake8 .
+      - name: Flake8 lint (exclude env & libs)
+        run: |
+          flake8 . \
+            --exclude=venv,.venv,env,lib,site-packages,__pycache__ \
+            --max-line-length=88
         continue-on-error: true
 
-      - name: Pylint
-        run: pylint --errors-only .
+      - name: Pylint (skip venv)
+        run: |
+          pylint **/*.py \
+            --ignore-patterns="venv/*,.venv/*,env/*,lib/*,site-packages/*"
         continue-on-error: true
 
-      - name: Mypy type-check
-        run: mypy .
+      - name: Mypy type-check (exclude venv)
+        run: |
+          mypy . \
+            --exclude 'venv|\.venv|env|lib|site-packages|__pycache__'
         continue-on-error: true
 
   security-scan:
@@ -66,14 +72,19 @@ jobs:
         run: pip install bandit semgrep safety
         continue-on-error: true
 
-      - name: Bandit scan
+      - name: Bandit scan (exclude env & libs)
         run: |
           mkdir -p reports
-          bandit -r . -f json -o reports/bandit.json
+          bandit -r . \
+            -x venv,env,lib,site-packages,__pycache__ \
+            -f json -o reports/bandit.json
         continue-on-error: true
 
-      - name: Semgrep scan
-        run: semgrep --config=p/ci --json --output reports/semgrep.json
+      - name: Semgrep scan (exclude env & libs)
+        run: |
+          semgrep --config=p/ci \
+            --json --output=reports/semgrep.json \
+            --exclude-dir=venv,env,lib,site-packages,__pycache__
         continue-on-error: true
 
       - name: Safety dependency scan
@@ -81,7 +92,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload security reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-reports
           path: reports/
@@ -131,7 +142,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload ZAP report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: zap-report
           path: reports/zap-report.html
@@ -165,7 +176,7 @@ jobs:
         run: chmod +x ./sonar-scanner/bin/sonar-scanner
         continue-on-error: true
 
-      - name: Run SonarScanner
+      - name: Run SonarScanner (exclude env & libs)
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
@@ -174,6 +185,7 @@ jobs:
             -Dsonar.login=$SONAR_TOKEN \
             -Dsonar.projectKey=proiect-django \
             -Dsonar.sources=. \
+            -Dsonar.exclusions=**/venv/**,**/env/**,**/lib/**,**/site-packages/**,**/__pycache__/** \
             -Dsonar.externalIssuesReportPaths=reports/sonar-bandit.json,reports/sonar-semgrep.json,reports/sonar-safety.json \
             -X
         continue-on-error: true
